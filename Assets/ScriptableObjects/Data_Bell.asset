@@ -15,4 +15,4 @@ MonoBehaviour:
   SymbolID: 2
   SymbolSprite: {fileID: 21300000, guid: fd3283a7dd8f7ab459765d338a06c264, type: 3}
   PayoutValue: 300
-  winWeight: 60
+  winWeight: 230
