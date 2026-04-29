@@ -2,7 +2,7 @@
 - Project name: Slot_Machine
 - Unity version: Unity 6000.0.47f1
 - Active game object:
-  - Name: Betting_Panel
+  - Name: Game_Manager
   - Tag: Untagged
-  - Layer: UI
+  - Layer: Default
 <!-- UNITY CODE ASSIST INSTRUCTIONS END -->

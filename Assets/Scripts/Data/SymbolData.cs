@@ -17,5 +17,8 @@ namespace SlotGame.Data
 
         [Tooltip("The reward multiplier or value for matching this symbol.")]
         public int PayoutValue;
+
+        
+        public int winWeight = 10; // Higher = more common
     }
 }

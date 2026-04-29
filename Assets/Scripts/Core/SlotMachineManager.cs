@@ -6,13 +6,12 @@ using SlotGame.Data;
 namespace SlotGame.Core
 {
     /// <summary>
-    /// The high-level orchestrator for the slot machine. Handles user input,
-    /// coordinates reel movement, manages the symbol pool, and evaluates results.
+    /// The brain of the Slot Machine. Coordinates the reels, determines RNG outcomes,
+    /// and communicates with the BettingManager to handle the UI and money.
     /// </summary>
     public class SlotMachineManager : MonoBehaviour
     {
         [Header("Reel Configuration")]
-        [Tooltip("References to the three independent reel columns.")]
         [SerializeField] private List<ReelController> reels;
 
         [Header("Timing Settings")]
@@ -21,70 +20,93 @@ namespace SlotGame.Core
         [SerializeField] private float minimumSpinDuration = 2.0f;
 
         [Header("Game Data")]
-        [Tooltip("The list of all possible SymbolData ScriptableObjects (7, Cherry, Bell, Bar).")]
         [SerializeField] private List<SymbolData> symbolPool;
+
+        [Header("External Managers")]
+        [Tooltip("The manager handling bets, balance, and the betting menu visibility.")]
+        [SerializeField] private BettingManager bettingManager;
 
         private bool _isSpinningSequenceActive;
 
         /// <summary>
-        /// Public entry point for the UI Spin Button.
+        /// Public entry point called by the BettingManager after a bet is placed.
         /// </summary>
         public void RequestSpin()
         {
-            // Prevent overlapping spin requests
             if (_isSpinningSequenceActive) return;
 
-            // Ensure the pool is populated to prevent runtime crashes
             if (symbolPool == null || symbolPool.Count == 0)
             {
-                Debug.LogError("[SlotMachineManager] Symbol Pool is empty! Assign SymbolData assets in the Inspector.");
+                Debug.LogError("[SlotMachineManager] Symbol Pool is empty!");
                 return;
             }
 
             StartCoroutine(SpinSequence());
         }
+        private SymbolData GetWeightedRandomSymbol()
+        {
+            // 1. Calculate the total weight of all symbols in the pool
+            int totalWeight = 0;
+            foreach (var symbol in symbolPool)
+            {
+                totalWeight += symbol.winWeight;
+            }
 
-        /// <summary>
-        /// Coroutine managing the full lifecycle of a spin: Start -> Delay -> Stop -> Evaluate.
-        /// </summary>
+            // 2. Pick a random number between 0 and the total weight
+            int randomNumber = Random.Range(0, totalWeight);
+
+            // 3. Iterate through the pool to find which symbol the random number "lands" on
+            foreach (var symbol in symbolPool)
+            {
+                if (randomNumber < symbol.winWeight)
+                {
+                    return symbol;
+                }
+                randomNumber -= symbol.winWeight;
+            }
+
+            return symbolPool[0]; // Fallback
+        }
         private IEnumerator SpinSequence()
         {
             _isSpinningSequenceActive = true;
 
-            // 1. Determine the landing results via RNG before the reels even stop
+            // 1. Pre-determine results (RNG Injection)
             SymbolData[] finalResults = new SymbolData[reels.Count];
             for (int i = 0; i < finalResults.Length; i++)
             {
-                finalResults[i] = symbolPool[Random.Range(0, symbolPool.Count)];
+                finalResults[i] = GetWeightedRandomSymbol(); ;
             }
 
-            // 2. Start all reels with a staggered delay
+            // 2. Start all reels (Staggered)
             foreach (var reel in reels)
             {
                 reel.StartSpin();
                 yield return new WaitForSeconds(staggeredStartDelay);
             }
 
-            // 3. Maintain the spin for the minimum visual duration
+            // 3. Keep spinning for the duration
             yield return new WaitForSeconds(minimumSpinDuration);
 
-            // 4. Sequentially stop each reel and inject the pre-determined result
+            // 4. Stop all reels (Staggered) and inject the target symbols
             for (int i = 0; i < reels.Count; i++)
             {
                 reels[i].StopSpin(finalResults[i]);
                 yield return new WaitForSeconds(staggeredStopDelay);
             }
 
-            // 5. Final validation and Win Evaluation
+            // 5. Evaluate the results for a win
             EvaluateWin(finalResults);
 
+            // 6. Signal the BettingManager that the sequence is over
             _isSpinningSequenceActive = false;
+
+            if (bettingManager != null)
+            {
+                bettingManager.OnSpinComplete();
+            }
         }
 
-        /// <summary>
-        /// Compares the landing symbols to determine if the player has won.
-        /// </summary>
-        /// <param name="results">The SymbolData that landed on each reel.</param>
         private void EvaluateWin(SymbolData[] results)
         {
             if (results.Length < 2) return;
@@ -92,7 +114,7 @@ namespace SlotGame.Core
             bool isWin = true;
             int firstSymbolID = results[0].SymbolID;
 
-            // Simple Logic: All symbols must match the first one
+            // Check if all reel results match the first reel
             for (int i = 1; i < results.Length; i++)
             {
                 if (results[i].SymbolID != firstSymbolID)
@@ -104,15 +126,18 @@ namespace SlotGame.Core
 
             if (isWin)
             {
-                // Retrieve payout from the SymbolData ScriptableObject
                 int payout = results[0].PayoutValue;
-                Debug.Log($"<color=cyan>[WIN]</color> Jackpot! 3x {results[0].name} matched. Awarding: {payout}G");
+                Debug.Log($"<color=cyan>[WIN]</color> {results[0].name} Match! Awarding: {payout}G");
 
-                // Trigger Win UI or Particle Effects here
+                // Send the winnings to the BettingManager to update the Balance UI
+                if (bettingManager != null)
+                {
+                    bettingManager.AddWinnings(payout);
+                }
             }
             else
             {
-                Debug.Log("<color=grey>[LOSE]</color> No match. Better luck next time.");
+                Debug.Log("<color=grey>[LOSE]</color> No match.");
             }
         }
     }
