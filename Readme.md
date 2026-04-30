@@ -216,9 +216,4 @@ All shader properties are exposed to the Inspector through the Material, so ever
 
 ---
 
-## Repository
 
-**Author:** novascream
-**Repository:** https://github.com/novascream/Slot_Machine
-**Live Build:** https://novascream.github.io/Slot_Machine/Build/
-**Unity Version:** 6000.0.47f1
