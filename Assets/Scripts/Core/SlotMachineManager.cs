@@ -7,7 +7,7 @@ namespace SlotGame.Core
 {
     /// <summary>
     /// The brain of the Slot Machine. Coordinates the reels, determines RNG outcomes,
-    /// and communicates with the BettingManager and CroupierAI.
+    /// and communicates with the BettingManager, CroupierAI, and AudioSource.
     /// </summary>
     public class SlotMachineManager : MonoBehaviour
     {
@@ -24,12 +24,16 @@ namespace SlotGame.Core
 
         [Header("External Managers")]
         [SerializeField] private BettingManager bettingManager;
-        [SerializeField] private CroupierAI croupier; // Added link to the Croupier
+        [SerializeField] private CroupierAI croupier;
+
+        [Header("Audio")]
+        [Tooltip("The looping sound that plays while reels are spinning.")]
+        [SerializeField] private AudioSource spinningSFX;
 
         private bool _isSpinningSequenceActive;
 
         /// <summary>
-        /// Entry point for starting a spin.
+        /// Entry point for starting a spin. Triggered by BettingManager.
         /// </summary>
         public void RequestSpin()
         {
@@ -45,7 +49,7 @@ namespace SlotGame.Core
         }
 
         /// <summary>
-        /// Selects a symbol based on its 'winWeight' parameter.
+        /// Selects a symbol based on its 'winWeight' parameter defined in SymbolData.
         /// </summary>
         private SymbolData GetWeightedRandomSymbol()
         {
@@ -66,41 +70,49 @@ namespace SlotGame.Core
                 randomNumber -= symbol.winWeight;
             }
 
-            return symbolPool[0];
+            return symbolPool[0]; // Fallback
         }
 
         private IEnumerator SpinSequence()
         {
             _isSpinningSequenceActive = true;
 
-            // 1. Pre-determine weighted results
+            // Start spinning sound
+            if (spinningSFX != null) spinningSFX.Play();
+
+            // 1. Pre-determine weighted results (RNG Injection)
             SymbolData[] finalResults = new SymbolData[reels.Count];
             for (int i = 0; i < finalResults.Length; i++)
             {
                 finalResults[i] = GetWeightedRandomSymbol();
             }
 
-            // 2. Start reels
+            // 2. Start reels in a staggered pattern
             foreach (var reel in reels)
             {
                 reel.StartSpin();
                 yield return new WaitForSeconds(staggeredStartDelay);
             }
 
+            // 3. Wait for the minimum spin time
             yield return new WaitForSeconds(minimumSpinDuration);
 
-            // 3. Stop reels and inject results
+            // 4. Stop reels one by one and inject the predetermined results
             for (int i = 0; i < reels.Count; i++)
             {
                 reels[i].StopSpin(finalResults[i]);
                 yield return new WaitForSeconds(staggeredStopDelay);
             }
 
-            // 4. Evaluate win/loss
+            // 5. Evaluate the final results for a win or loss
             EvaluateWin(finalResults);
+
+            // Stop spinning sound
+            if (spinningSFX != null) spinningSFX.Stop();
 
             _isSpinningSequenceActive = false;
 
+            // 6. Signal the BettingManager that the UI can be re-enabled
             if (bettingManager != null)
             {
                 bettingManager.OnSpinComplete();
@@ -114,6 +126,7 @@ namespace SlotGame.Core
             bool isWin = true;
             int firstSymbolID = results[0].SymbolID;
 
+            // Simple win logic: All reels must match the first reel
             for (int i = 1; i < results.Length; i++)
             {
                 if (results[i].SymbolID != firstSymbolID)
@@ -128,17 +141,17 @@ namespace SlotGame.Core
                 int payout = results[0].PayoutValue;
                 Debug.Log($"<color=cyan>[WIN]</color> {results[0].name} Match! Awarding: {payout}G");
 
-                // Update UI Balance
+                // Update Balance UI via BettingManager
                 if (bettingManager != null) bettingManager.AddWinnings(payout);
 
-                // Tell Croupier to celebrate
+                // Report the win to the Croupier for a reaction
                 if (croupier != null) croupier.ReportSpinOutcome(true, payout);
             }
             else
             {
                 Debug.Log("<color=grey>[LOSE]</color> No match.");
 
-                // Tell Croupier to comment on the loss/streak
+                // Report the loss to the Croupier
                 if (croupier != null) croupier.ReportSpinOutcome(false);
             }
         }
