@@ -4,7 +4,7 @@ A 3-reel slot machine game built in Unity 6. The project implements weighted RNG
 
 **Playable WebGL build:** https://novascream.github.io/Slot_Machine/Build/
 
-Made as an intership assignment for underpin services.
+Made as an internship assignment for underpin services.
 ---
 
 ## Technical Stack
