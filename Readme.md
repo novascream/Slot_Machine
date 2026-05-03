@@ -1,9 +1,9 @@
-# Slot Machine
+# Slot Machine 
 
 A 3-reel slot machine game built in Unity 6. The project implements weighted RNG, staggered reel animation with pixel-perfect alignment, a personality-driven croupier commentary system, and a custom URP post-process shader combining palette quantization, ordered dithering, and Sobel edge detection.
 
 **Playable WebGL build:** https://novascream.github.io/Slot_Machine/Build/
-
+**Made as an intership assignment for underpin services.
 ---
 
 ## Technical Stack
